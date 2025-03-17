@@ -1,0 +1,26 @@
+{
+  "name": "crypto-task1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Doshirac/crypto-task1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Doshirac/crypto-task1/issues"
+  },
+  "homepage": "https://github.com/Doshirac/crypto-task1#readme",
+  "description": "",
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "elliptic": "^6.6.1",
+    "fs": "^0.0.1-security"
+  }
+}
