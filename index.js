@@ -1,41 +1,62 @@
-const CryptoJS = require("crypto-js");
-const fs = require("fs");
-const { generateAESKey } = require("./utils/generateAESKey");
-const { encryptAES } = require("./utils/encryptAES");
-const { decryptAES } = require("./utils/decryptAES");
-const { recoverAESKey } = require("./utils/recoverAESKey");
-const { generateECKeys } = require("./utils/generateECKeys");
+const fs = require("fs").promises;
+const path = require("path");
+const { findMatchingKey } = require("./utils/findMatchingKey");
+const { decryptAES128 } = require("./utils/decryptAES128");
+const { generateECKeyPair } = require("./utils/generateECKeyPair");
 const { signMessage } = require("./utils/signMessage");
-const { hashSHA256 } = require("./utils/hashSHA256");
 
-// Step 1: Generate and save AES key
-const aesKey = generateAESKey();
-console.log("Generated AES Key:", aesKey.toString(CryptoJS.enc.Hex));
+async function main() {
+  try {
+    // Read keys from file
+    const keysData = await fs.readFile(
+      path.join(__dirname, "data", "keys.txt"),
+      "utf8"
+    );
+    const keys = keysData.trim().split("\n");
 
-// Step 2: Encrypt a message
-const plaintext = fs.readFileSync("messages/plaintext.txt");
-const ciphertextBase64 = encryptAES(plaintext, aesKey);
-console.log("Encrypted (Base64):", ciphertextBase64);
+    // Read target hash
+    const targetHash = await fs.readFile(
+      path.join(__dirname, "data", "target-hash.txt"),
+      "utf8"
+    );
 
-// Step 3: Simulate corrupted key transmission (modify last hex digit)
-const originalKeyHex = aesKey.toString(CryptoJS.enc.Hex);
-const corruptedKeyHex = originalKeyHex.slice(0, -1) + "F";
-console.log("Corrupted AES Key:", corruptedKeyHex);
+    // Read encrypted data
+    const encryptedData = await fs.readFile(
+      path.join(__dirname, "data", "encrypted-data.txt"),
+      "utf8"
+    );
+    const encryptedConfig = Object.fromEntries(
+      encryptedData.split("\n").map((line) => line.split("="))
+    );
 
-// Step 4: Recover the AES key using the Base64 ciphertext
-const recoveredKeyHex = recoverAESKey(ciphertextBase64, corruptedKeyHex);
-if (!recoveredKeyHex) process.exit(1);
+    // Step 2: Find the correct symmetric key
+    const correctKey = findMatchingKey(keys, targetHash.trim());
+    if (!correctKey) {
+      console.error("No matching symmetric key found.");
+      process.exit(1);
+    }
+    console.log("Correct symmetric key found:", correctKey);
 
-const recoveredKey = CryptoJS.enc.Hex.parse(recoveredKeyHex);
-const decryptedText = decryptAES(ciphertextBase64, recoveredKey);
-console.log("Decrypted Text:", decryptedText);
+    // Step 3: Decrypt the message using the correct key
+    const decryptedMessage = decryptAES128(
+      encryptedConfig.message,
+      correctKey,
+      encryptedConfig.iv
+    );
+    console.log("Decrypted message:", decryptedMessage);
 
-// Step 5: Generate EC key pair
-const { keyPair, publicKey, privateKey } = generateECKeys();
-console.log("Generated EC Public Key:", publicKey);
-console.log("Generated EC Private Key:", privateKey);
+    // Step 4: Generate EC key pair and sign the message
+    const { publicKey, privateKey } = await generateECKeyPair();
+    console.log("EC Public Key:\n", publicKey);
+    console.log("EC Private Key:\n", privateKey);
 
-// Step 6: Sign the original plaintext message (using its SHA-256 hash)
-const messageHash = hashSHA256(plaintext);
-const signature = signMessage(messageHash, keyPair);
-console.log("Digital Signature:", signature);
+    // Sign the decrypted message
+    const signature = signMessage(decryptedMessage, privateKey);
+    console.log("Digital signature (hex):", signature);
+  } catch (error) {
+    console.error("Error:", error.message);
+    process.exit(1);
+  }
+}
+
+main();

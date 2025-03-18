@@ -1,9 +1,10 @@
-const fs = require("fs");
+const crypto = require("crypto");
 
-function signMessage(message, keyPair) {
-    const signature = keyPair.sign(message, "hex").toDER("hex");
-    fs.writeFileSync("messages/signature.txt", signature);
-    return signature;
+function signMessage(message, privateKey) {
+  const sign = crypto.createSign("SHA256");
+  sign.update(message);
+  sign.end();
+  return sign.sign(privateKey, "hex");
 }
 
 module.exports = { signMessage };
